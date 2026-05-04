@@ -11,7 +11,6 @@ compatibility:
     - Google Calendar (list_events, create_event)
     - Notion (notion-create-pages, notion-search)
 context:
-  user: Kevin
   timezone: Europe/Paris
   language: French
   work_days: Monday to Friday
@@ -165,7 +164,7 @@ Terminer avec un message de confirmation concis :
 → X blocs ajoutés au calendrier
 → Boîte mail triée (X archivés, X catégorisés)
 
-Bonne journée Kevin 💪
+Bonne journée 💪
 ```
 
 ---
