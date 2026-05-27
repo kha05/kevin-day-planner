@@ -2,12 +2,12 @@
 name: day-planner-remote
 description: >
   Remote morning planning routine. Reads Google Calendar and Gmail,
-  produces a prioritized daily plan, and creates tasks in Notion and Google Calendar.
+  classifies and labels emails, produces a prioritized daily plan,
+  and creates tasks in Notion and Google Calendar.
   Designed to run automatically every weekday morning at 08:00 Paris time.
-  Does NOT perform Gmail actions (labels/archive) — handled by local routine.
 compatibility:
   tools:
-    - Gmail (search_threads — read only)
+    - Gmail (search_threads, list_email_labels, get_or_create_label, label_thread, send_email)
     - Google Calendar (list_events, create_event)
     - Notion (notion-create-pages, notion-search)
 context:
@@ -16,11 +16,10 @@ context:
   work_days: Monday to Friday
 ---
 
-# Day Planner — Remote Routine (Planning)
+# Day Planner — Remote Routine (Planning + Gmail Triage)
 
-Routine matinale cloud. Lit le calendrier et les mails, génère un plan
-priorisé, et crée les tâches dans Notion et Google Calendar.
-Le tri de la boîte mail est géré séparément par la Local Routine.
+Routine matinale cloud. Lit le calendrier et les mails, applique des labels
+Gmail, génère un plan priorisé, et crée les tâches dans Notion et Google Calendar.
 
 ---
 
@@ -51,13 +50,30 @@ is:unread OR is:important newer_than:2d
 Récupérer jusqu'à 20 threads. Pour chaque thread noter : expéditeur, sujet, date, snippet.
 
 Classifier chaque mail :
-| Catégorie | Critères |
-|-----------|----------|
-| 🔴 Urgent | Action requise aujourd'hui (deadline, réponse attendue, bloque quelqu'un) |
-| 🟡 Important | À traiter cette semaine, pas forcément aujourd'hui |
-| ⚪ Low priority | FYI, newsletters, notifications automatiques, promos |
+| Catégorie | Label Gmail | Critères |
+|-----------|-------------|----------|
+| 🔴 Urgent | `Urgent` | Action requise aujourd'hui (deadline, réponse attendue, bloque quelqu'un) |
+| 🟡 Important | `Important` | À traiter cette semaine, pas forcément aujourd'hui |
+| ⚪ Low priority | `Low Priority` | FYI, newsletters, notifications automatiques, promos |
 
-> Note : le tri, archivage et labellisation sont effectués par la Local Routine (gmail-mcp).
+---
+
+### 3b. Appliquer les labels Gmail
+
+**1. Récupérer les labels existants** avec **Gmail: list_email_labels**.
+
+**2. Résoudre chaque label** (correspondance insensible à la casse) :
+
+| Catégorie | Noms acceptés (priorité décroissante) |
+|-----------|---------------------------------------|
+| 🔴 Urgent | `Urgent`, `🔴 Urgent`, `urgent`, `ACTION`, `À traiter` |
+| 🟡 Important | `Important`, `🟡 Important`, `important`, `This week` |
+| ⚪ Low priority | `Low Priority`, `⚪ Low Priority`, `low priority`, `FYI`, `À lire`, `Info` |
+
+- Si un label correspondant **existe déjà** → utiliser son ID tel quel.
+- Si **aucun** label ne correspond → créer avec **Gmail: get_or_create_label** (couleurs : rouge / jaune / gris).
+
+**3. Appliquer** avec **Gmail: label_thread** à **tous** les threads classifiés, même les ⚪ Low priority.
 
 ---
 
@@ -122,14 +138,28 @@ Pour chaque événement :
 
 ---
 
-### 7. Résumé final
+### 7. Envoyer le résumé par email
+
+Utiliser **Gmail: send_email** pour s'envoyer le plan du jour :
+
+- **To** : `ha.kevin2012@gmail.com`
+- **Subject** : `📅 Plan du jour — [Jour] [Date]`
+- **Body** : le plan complet généré à l'étape 4, au format texte brut, incluant :
+  - l'agenda du jour
+  - les priorités
+  - les mails urgents avec actions
+  - le résumé de la routine (labels, tâches, blocs)
+
+---
+
+### 8. Résumé final
 
 ```
 ✅ Planning du jour prêt !
+→ X mails labellisés (X Urgent, X Important, X Low Priority)
 → X tâches créées dans Notion
 → X blocs ajoutés au calendrier
-
-💡 Lance la Local Routine sur ton Mac pour trier ta boîte mail.
+→ Résumé envoyé par email
 
 Bonne journée 💪
 ```
